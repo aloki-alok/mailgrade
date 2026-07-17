@@ -1,7 +1,7 @@
 #!/bin/sh
-# Install the latest mailgrade release. Usage:
+# Install the latest mailgrade release (installs the `mg` command). Usage:
 #   curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.sh | sh
-# Override the install directory with MAILGRADE_INSTALL_DIR (default /usr/local/bin,
+# Override the install directory with MG_INSTALL_DIR (default /usr/local/bin,
 # falling back to $HOME/.local/bin when that is not writable).
 set -eu
 
@@ -40,7 +40,7 @@ case "$arch" in
 	*) err "unsupported architecture: $arch" ;;
 esac
 
-archive="mailgrade_${os}_${arch}.tar.gz"
+archive="mg_${os}_${arch}.tar.gz"
 base="https://github.com/${REPO}/releases/latest/download"
 
 tmp=$(mktemp -d)
@@ -60,10 +60,10 @@ else
 fi
 grep -q "$sum" "${tmp}/checksums.txt" || err "checksum mismatch, refusing to install"
 
-tar -xzf "${tmp}/${archive}" -C "$tmp" mailgrade || err "could not extract mailgrade"
+tar -xzf "${tmp}/${archive}" -C "$tmp" mg || err "could not extract mailgrade"
 
-if [ -n "${MAILGRADE_INSTALL_DIR:-}" ]; then
-	dir="$MAILGRADE_INSTALL_DIR"
+if [ -n "${MG_INSTALL_DIR:-}" ]; then
+	dir="$MG_INSTALL_DIR"
 	mkdir -p "$dir" || err "cannot create $dir"
 else
 	dir="/usr/local/bin"
@@ -72,10 +72,10 @@ else
 		mkdir -p "$dir"
 	fi
 fi
-install -m 0755 "${tmp}/mailgrade" "${dir}/mailgrade"
+install -m 0755 "${tmp}/mg" "${dir}/mg"
 
-echo "install: mailgrade installed to ${dir}/mailgrade"
+echo "install: mg installed to ${dir}/mg"
 case ":${PATH}:" in
 	*":${dir}:"*) ;;
-	*) echo "install: add ${dir} to your PATH to run mailgrade" ;;
+	*) echo "install: add ${dir} to your PATH to run mg" ;;
 esac

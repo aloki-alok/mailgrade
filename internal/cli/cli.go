@@ -26,7 +26,7 @@ func Run(args []string) int {
 	}
 	switch args[0] {
 	case "version", "--version", "-v":
-		fmt.Println("mailgrade " + resolveVersion())
+		fmt.Println("mg " + resolveVersion())
 		return 0
 	case "help", "--help", "-h":
 		usage(os.Stdout)
@@ -47,7 +47,7 @@ type flags struct {
 func scan(args []string) int {
 	f, err := parse(args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "mailgrade: %v\n", err)
+		fmt.Fprintf(os.Stderr, "mg: %v\n", err)
 		return 2
 	}
 
@@ -55,7 +55,7 @@ func scan(args []string) int {
 
 	if f.jsonOut {
 		if err := report.JSON(os.Stdout, rep); err != nil {
-			fmt.Fprintf(os.Stderr, "mailgrade: %v\n", err)
+			fmt.Fprintf(os.Stderr, "mg: %v\n", err)
 			return 1
 		}
 	} else {
@@ -191,11 +191,11 @@ func resolveVersion() string {
 }
 
 func usage(w *os.File) {
-	fmt.Fprint(w, `mailgrade: grade a domain's email deliverability posture from your terminal.
+	fmt.Fprint(w, `mg: grade a domain's email deliverability posture from your terminal.
 
 Usage:
-  mailgrade <domain> [flags]
-  mailgrade version
+  mg <domain> [flags]
+  mg version
 
 It checks MX, SPF, DKIM, DMARC, reverse DNS, STARTTLS, MTA-STS, TLS-RPT, DANE,
 BIMI, and blocklists, then prints a 0-100 score, an A-F grade, and the record to
@@ -212,8 +212,8 @@ Flags:
   --fail-on LEVEL    exit non-zero if any check is at least LEVEL (warn|fail)
 
 Examples:
-  mailgrade example.com
-  mailgrade example.com --selector google -V
-  mailgrade example.com --json --fail-on warn
+  mg example.com
+  mg example.com --selector google -V
+  mg example.com --json --fail-on warn
 `)
 }

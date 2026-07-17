@@ -83,6 +83,7 @@ type Scanner struct {
 	mx     []dns.MXHost
 	mxIPs  map[string][]net.IP
 	nullMX bool
+	spf    string // the domain's SPF record, cached by the SPF check for reuse
 }
 
 // Run scans a domain and returns a scored report. Checks run in a fixed order;

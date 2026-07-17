@@ -1,20 +1,21 @@
 # mailgrade
 
-Grade any domain's email deliverability from your terminal. `mailgrade` checks
-the DNS records and mail-server settings that decide whether your email reaches
-the inbox (SPF, DKIM, DMARC, reverse DNS, STARTTLS, MTA-STS, TLS-RPT, DANE, BIMI,
-and blocklists), then prints a 0-100 score, an A-F grade, and the exact record to
-publish for each gap.
+Grade any domain's email deliverability from your terminal. The `mg` command
+checks the DNS records and mail-server settings that decide whether your email
+reaches the inbox (SPF, DKIM, DMARC, reverse DNS, STARTTLS, MTA-STS, TLS-RPT,
+DANE, BIMI, and blocklists), then prints a 0-100 score, an A-F grade, a
+plain-English verdict, and the exact record to publish for each gap.
 
 One command, one static binary, no dependencies. It reads a domain's public DNS
 and SMTP posture and never sends mail.
 
 ```
-mailgrade example.com
+mg example.com
 ```
 
 ```
   example.com    B    83/100
+  Solid. 3 quick wins to harden (start with DMARC).
 
   ✓  MX           2 MX host(s): mx1.example.com (pref 10), mx2.example.com (pref 20)
   ✓  SPF          v=spf1 with -all (hard fail)
@@ -30,8 +31,7 @@ mailgrade example.com
 
   Fixes
     ⚠ DMARC: Once your reports look clean, move to p=quarantine and then p=reject.
-    ⚠ MTA-STS: Publish an _mta-sts TXT record and serve a policy to require TLS.
-    ⚠ TLS-RPT: Publish _smtp._tls TXT "v=TLSRPTv1; rua=..." to receive TLS failure reports.
+    ⚠ TLS-RPT: publish: _smtp._tls.example.com TXT "v=TLSRPTv1; rua=mailto:tlsrpt@example.com"
 ```
 
 ## Install
@@ -43,26 +43,27 @@ curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.s
 or with Go:
 
 ```
-go install github.com/aloki-alok/mailgrade@latest
+go install github.com/aloki-alok/mailgrade/cmd/mg@latest
 ```
 
 Prebuilt binaries for Linux, macOS, and Windows are on the
-[releases](https://github.com/aloki-alok/mailgrade/releases) page.
+[releases](https://github.com/aloki-alok/mailgrade/releases) page. Both install
+the `mg` command.
 
 ## Usage
 
 ```
-mailgrade <domain> [flags]
+mg <domain> [flags]
 ```
 
-The argument can be a bare domain, a URL, or an email address; mailgrade reduces
-it to the domain to scan.
+The argument can be a bare domain, a URL, or an email address; it is reduced to
+the domain to scan.
 
 ```
-mailgrade example.com
-mailgrade https://example.com
-mailgrade you@example.com --selector google -V
-mailgrade example.com --json --fail-on warn
+mg example.com
+mg https://example.com
+mg you@example.com --selector google -V
+mg example.com --json --fail-on warn
 ```
 
 | flag | meaning |
@@ -76,13 +77,24 @@ mailgrade example.com --json --fail-on warn
 | `--json` | emit the report as JSON |
 | `--fail-on LEVEL` | exit non-zero if any check is at least `warn` or `fail` |
 
+## Smart by default
+
+- **Provider-aware DKIM.** `mg` reads your SPF record to recognize your mail
+  provider (Google Workspace, Microsoft 365, SendGrid, Amazon SES, Mailgun,
+  Zoho, and more), checks that provider's selectors first, and names the exact
+  place to enable DKIM when it is missing.
+- **Copy-paste fixes.** Where a record is deterministic, the fix is the record:
+  paste it into your DNS and move on.
+- **A verdict, not just a number.** One line tells you whether the domain is
+  inbox-ready and what to fix first.
+
 ## In CI
 
-`--fail-on` turns mailgrade into a gate, so a regression in your domain's mail
-setup breaks the build:
+`--fail-on` turns `mg` into a gate, so a regression in your domain's mail setup
+breaks the build:
 
 ```yaml
-- run: mailgrade example.com --fail-on warn
+- run: mg example.com --fail-on warn
 ```
 
 ## What it checks
@@ -101,18 +113,21 @@ setup breaks the build:
 | BIMI | a `default._bimi` logo record |
 | Blocklists | sending IPs against well-known DNS blocklists |
 
-Run `mailgrade` with no domain to see the full help.
+Run `mg` with no domain to see the full help.
 
 ## Notes
 
-- **DKIM selectors cannot be listed from DNS.** mailgrade probes common selector
-  names; if your domain uses a custom one, pass `--selector <name>`.
-- **STARTTLS needs outbound port 25.** Many networks block it; when the MX cannot
-  be reached the check is skipped, never counted against the domain.
+- **The command is `mg`.** A minimal text editor of the same name ships on some
+  systems; if you use it, install `mg` (this tool) to a directory earlier or
+  later in your `PATH` as you prefer, or rename the binary.
+- **DKIM selectors cannot be listed from DNS.** `mg` probes provider and common
+  selector names; if your domain uses a custom one, pass `--selector <name>`.
+- **STARTTLS needs outbound port 25.** Many networks block it; when the MX
+  cannot be reached the check is skipped, never counted against the domain.
 - **Blocklist queries can be rate-limited** on shared public resolvers. Pass
   `--resolver` with a private or dedicated nameserver for a reliable answer.
-- A grade reflects the records mailgrade can see, not a guarantee of delivery.
-  Use it to find and fix gaps, not as a certificate.
+- A grade reflects the records `mg` can see, not a guarantee of delivery. Use it
+  to find and fix gaps, not as a certificate.
 
 ## License
 

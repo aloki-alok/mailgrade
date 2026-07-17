@@ -1,6 +1,7 @@
 # Contributing to mailgrade
 
-Thanks for helping out. mailgrade is a single Go binary; the loop is small.
+Thanks for helping out. mailgrade is a single Go binary (the `mg` command); the
+loop is small.
 
 ## Build and test
 
@@ -10,31 +11,40 @@ go test ./...
 go vet ./...
 ```
 
-`go run . <spec>` runs your working copy against a spec. The `examples/`
-directory has one to point it at:
+`go run ./cmd/mg <domain>` runs your working copy against a real domain:
 
 ```
-go run . ls examples/petstore.yaml
+go run ./cmd/mg example.com
+go run ./cmd/mg example.com --json
 ```
 
 ## Layout
 
-- `internal/openapi` parses the spec and inlines local `$ref`s.
-- `internal/tool` turns each operation into a tool and builds its HTTP request.
-- `internal/server` wires the tools into an MCP server and proxies calls.
-- `internal/cli` holds the commands (`serve`, `ls`) and flag parsing.
+- `internal/dns` resolves records (and DNS-over-HTTPS for TLSA).
+- `internal/records` parses SPF, DMARC, DKIM, and MTA-STS as pure, tested
+  functions.
+- `internal/checks` runs one check per file and scores the result.
+- `internal/report` renders the terminal and JSON output.
+- `internal/cli` holds flag parsing and the command surface.
 - `DESIGN.md` is the why: the problem, the non-goals, and the shape. Read it
   before a large change so a feature lands where it belongs.
+
+## Adding a check or a provider
+
+A new check is a file under `internal/checks` returning a `Result`, added to the
+list in `checks.go`; keep parsing logic in `internal/records` so it is testable
+without DNS. To teach mailgrade a new mail provider for DKIM detection, add an
+entry to `providers` in `internal/checks/providers.go`.
 
 ## Pull requests
 
 - Keep each PR to one concern, with a clear title that says the intent.
-- Add a test for behavior you change, especially in `internal/openapi` and
-  `internal/tool` where a wrong result would build the wrong request.
+- Add a test for behavior you change, especially in `internal/records` where a
+  wrong parse would misreport a domain.
 - `go test ./...` and `go vet ./...` must pass. CI runs both on every PR.
 - Match the surrounding style. No new dependency without a reason in the PR.
 
 ## Reporting bugs
 
-Open an issue with the version (`mailgrade version`), the spec (or a minimal
-reproduction of it), and what tool call behaved unexpectedly. Redact any tokens.
+Open an issue with the version (`mg version`), the domain (or a minimal
+reproduction), and the output you got versus what you expected.

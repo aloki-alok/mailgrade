@@ -29,7 +29,10 @@ func (s *Scanner) checkTLSRPT() Result {
 	r.Status = Warn
 	r.penalty = 3
 	r.Summary = "no TLS-RPT record"
-	r.Fixes = []string{`Publish _smtp._tls TXT "v=TLSRPTv1; rua=mailto:tlsrpt@example.com" to receive TLS failure reports.`}
+	r.Fixes = []string{
+		"Receive reports when TLS delivery to your domain fails.",
+		fmt.Sprintf(`publish: _smtp._tls.%s TXT "v=TLSRPTv1; rua=mailto:tlsrpt@%s"`, s.domain, s.domain),
+	}
 	return r
 }
 
