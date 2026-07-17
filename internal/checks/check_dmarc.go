@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/aloki-alok/mailgrade/internal/records"
@@ -18,7 +19,10 @@ func (s *Scanner) checkDMARC() Result {
 		r.Status = Fail
 		r.penalty = 20
 		r.Summary = "no DMARC record"
-		r.Fixes = []string{`Publish _dmarc TXT "v=DMARC1; p=none; rua=mailto:you@example.com" to start monitoring, then tighten to quarantine or reject.`}
+		r.Fixes = []string{
+			"Start monitoring, then tighten to quarantine and reject once reports look clean.",
+			fmt.Sprintf(`publish: _dmarc.%s TXT "v=DMARC1; p=none; rua=mailto:dmarc@%s"`, s.domain, s.domain),
+		}
 		return r
 	}
 

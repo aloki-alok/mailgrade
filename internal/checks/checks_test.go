@@ -52,6 +52,44 @@ func TestDnsblFromIPs(t *testing.T) {
 	}
 }
 
+func TestVerdict(t *testing.T) {
+	cases := []struct {
+		name    string
+		grade   string
+		results []Result
+		want    string
+	}{
+		{
+			"clean", "A",
+			[]Result{{Name: "MX", Status: Pass}, {Name: "SPF", Status: Pass}},
+			"Locked down. Nothing to fix.",
+		},
+		{
+			"failing names top priority first", "F",
+			[]Result{{Name: "DKIM", Status: Fail}, {Name: "MX", Status: Fail}, {Name: "SPF", Status: Fail}},
+			"Not inbox-ready: fix MX and SPF first.",
+		},
+		{
+			"grade A with hardening warns", "A",
+			[]Result{{Name: "MX", Status: Pass}, {Name: "MTA-STS", Status: Warn}, {Name: "TLS-RPT", Status: Warn}},
+			"Solid. 2 quick wins to harden (start with MTA-STS).",
+		},
+		{
+			"weak grade with warns", "D",
+			[]Result{{Name: "DMARC", Status: Warn}},
+			"Needs work: 1 issue (start with DMARC).",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			r := Report{Grade: c.grade, Results: c.results}
+			if got := r.Verdict(); got != c.want {
+				t.Fatalf("Verdict() = %q want %q", got, c.want)
+			}
+		})
+	}
+}
+
 func TestWorst(t *testing.T) {
 	if worst(Pass, Fail) != Fail {
 		t.Error("Fail should beat Pass")

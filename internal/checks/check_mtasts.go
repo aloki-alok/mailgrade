@@ -27,7 +27,10 @@ func (s *Scanner) checkMTASTS() Result {
 		r.Status = Warn
 		r.penalty = 4
 		r.Summary = "no MTA-STS policy"
-		r.Fixes = []string{"Publish an _mta-sts TXT record and serve a policy at https://mta-sts.<domain>/.well-known/mta-sts.txt to require TLS."}
+		r.Fixes = []string{
+			fmt.Sprintf("Serve a policy at https://mta-sts.%s/.well-known/mta-sts.txt (version: STSv1, mode: enforce, your mx lines, max_age).", s.domain),
+			fmt.Sprintf(`publish: _mta-sts.%s TXT "v=STSv1; id=%s"`, s.domain, "<change-on-each-policy-update>"),
+		}
 		return r
 	}
 

@@ -21,10 +21,11 @@ func JSON(w io.Writer, r checks.Report) error {
 // Terminal writes the human report: the domain and grade, a line per check, and
 // the fixes for anything that did not pass.
 func Terminal(w io.Writer, r checks.Report, st ui.Style, verbose bool) {
-	fmt.Fprintf(w, "\n  %s   %s   %s\n\n",
+	fmt.Fprintf(w, "\n  %s   %s   %s\n",
 		st.Bold(r.Domain),
 		gradeBadge(r.Grade, st),
 		st.Bold(fmt.Sprintf("%d/100", r.Score)))
+	fmt.Fprintf(w, "  %s\n\n", st.Dim(r.Verdict()))
 
 	for _, res := range r.Results {
 		fmt.Fprintf(w, "  %s  %-12s %s\n", mark(res.Status, st), res.Name, st.Dim(res.Summary))

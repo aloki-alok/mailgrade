@@ -8,6 +8,7 @@ type reportJSON struct {
 	Domain  string      `json:"domain"`
 	Score   int         `json:"score"`
 	Grade   string      `json:"grade"`
+	Verdict string      `json:"verdict"`
 	Results []checkJSON `json:"results"`
 }
 
@@ -20,7 +21,7 @@ type checkJSON struct {
 }
 
 func jsonView(r checks.Report) reportJSON {
-	out := reportJSON{Domain: r.Domain, Score: r.Score, Grade: r.Grade}
+	out := reportJSON{Domain: r.Domain, Score: r.Score, Grade: r.Grade, Verdict: r.Verdict()}
 	out.Results = make([]checkJSON, 0, len(r.Results))
 	for _, res := range r.Results {
 		out.Results = append(out.Results, checkJSON{
