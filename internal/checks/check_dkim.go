@@ -58,9 +58,12 @@ func (s *Scanner) probeSelectors(selectors []string) map[string]string {
 // any user-supplied --selector).
 var commonSelectors = []string{
 	"google", "selector1", "selector2", "s1", "s2", "k1", "k2", "k3",
-	"default", "dkim", "mail", "smtp", "mandrill", "mxvault", "protonmail",
-	"protonmail2", "protonmail3", "zoho", "zohomail", "fm1", "fm2", "fm3",
-	"sig1", "scph0122", "pic", "amazonses", "mailjet", "sparkpost",
+	"default", "dkim", "dkim1", "dkim2", "mail", "smtp", "mandrill", "mxvault",
+	"protonmail", "protonmail2", "protonmail3", "zoho", "zohomail",
+	"fm1", "fm2", "fm3", "sig1", "scph0122", "pic", "amazonses", "mailjet",
+	"sparkpost", "key1", "key2", "key3", "mbo0001", "mbo0002", "s1024", "s2048",
+	"resend", "purelymail1", "purelymail2", "purelymail3", "cm", "mg", "mx",
+	"ml", "litesrv", "everlytickey1", "everlytickey2",
 }
 
 // checkDKIM probes common selectors (and any override) for a DKIM key and reports

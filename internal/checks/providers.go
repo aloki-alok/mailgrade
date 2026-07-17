@@ -65,6 +65,21 @@ var providers = []provider{
 		dkimHint:  "Enable DKIM for the domain in Zendesk and publish the zendesk1/zendesk2 CNAME records.",
 	},
 	{
+		name: "Fastmail", spfToken: "spf.messagingengine.com",
+		selectors: []string{"fm1", "fm2", "fm3"},
+		dkimHint:  "Fastmail sets DKIM up automatically; publish the fm1/fm2/fm3 CNAME records shown under Settings > Domains.",
+	},
+	{
+		name: "Migadu", spfToken: "spf.migadu.com",
+		selectors: []string{"key1", "key2", "key3"},
+		dkimHint:  "Publish the key1/key2/key3 CNAME records from the Migadu admin panel's DNS instructions.",
+	},
+	{
+		name: "iCloud Mail", spfToken: "include:icloud.com",
+		selectors: []string{"sig1"},
+		dkimHint:  "Publish the sig1._domainkey CNAME record shown in iCloud settings when you add the custom domain.",
+	},
+	{
 		name: "Proton Mail", spfToken: "_spf.protonmail.ch",
 		selectors: []string{"protonmail", "protonmail2", "protonmail3"},
 		dkimHint:  "Enable the custom domain in Proton Mail and publish the three protonmail._domainkey CNAME records.",
