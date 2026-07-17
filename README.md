@@ -1,5 +1,7 @@
 # mailgrade
 
+[aloki-alok.github.io/mailgrade](https://aloki-alok.github.io/mailgrade/)
+
 Grade any domain's email deliverability from your terminal. The `mg` command
 checks the DNS records and mail-server settings that decide whether your email
 reaches the inbox (SPF, DKIM, DMARC, reverse DNS, STARTTLS, MTA-STS, TLS-RPT,
