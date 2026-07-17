@@ -7,6 +7,7 @@ package dns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -46,6 +47,28 @@ func (r *Resolver) ctx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), r.timeout)
 }
 
+// retry runs a lookup up to three times, retrying only transient failures
+// (timeouts and temporary errors). A definitive "no such record" is returned
+// immediately, so a scan is deterministic and never reports a record as missing
+// because one lookup happened to time out.
+func retry[T any](fn func() (T, error)) (T, error) {
+	var zero T
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		var v T
+		v, err = fn()
+		if err == nil {
+			return v, nil
+		}
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			return zero, err
+		}
+		time.Sleep(time.Duration(attempt+1) * 150 * time.Millisecond)
+	}
+	return zero, err
+}
+
 // MXHost is one MX record.
 type MXHost struct {
 	Host string
@@ -54,9 +77,11 @@ type MXHost struct {
 
 // MX returns the domain's MX hosts ordered by preference (lowest first).
 func (r *Resolver) MX(domain string) ([]MXHost, error) {
-	ctx, cancel := r.ctx()
-	defer cancel()
-	recs, err := r.r.LookupMX(ctx, domain)
+	recs, err := retry(func() ([]*net.MX, error) {
+		ctx, cancel := r.ctx()
+		defer cancel()
+		return r.r.LookupMX(ctx, domain)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -70,16 +95,20 @@ func (r *Resolver) MX(domain string) ([]MXHost, error) {
 
 // TXT returns the TXT records at name, each joined from its character strings.
 func (r *Resolver) TXT(name string) ([]string, error) {
-	ctx, cancel := r.ctx()
-	defer cancel()
-	return r.r.LookupTXT(ctx, name)
+	return retry(func() ([]string, error) {
+		ctx, cancel := r.ctx()
+		defer cancel()
+		return r.r.LookupTXT(ctx, name)
+	})
 }
 
 // IPs returns the A/AAAA addresses for host.
 func (r *Resolver) IPs(host string) ([]net.IP, error) {
-	ctx, cancel := r.ctx()
-	defer cancel()
-	addrs, err := r.r.LookupIPAddr(ctx, host)
+	addrs, err := retry(func() ([]net.IPAddr, error) {
+		ctx, cancel := r.ctx()
+		defer cancel()
+		return r.r.LookupIPAddr(ctx, host)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -102,16 +131,6 @@ func (r *Resolver) PTR(ip net.IP) ([]string, error) {
 		names[i] = trimDot(names[i])
 	}
 	return names, nil
-}
-
-// HostExists reports whether name resolves to any address, used for blocklist
-// (DNSBL) probes where the presence of an answer is the signal.
-func (r *Resolver) HostExists(name string) (bool, []net.IP) {
-	ips, err := r.IPs(name)
-	if err != nil || len(ips) == 0 {
-		return false, nil
-	}
-	return true, ips
 }
 
 func trimDot(s string) string {
