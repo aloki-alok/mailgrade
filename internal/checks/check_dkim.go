@@ -12,6 +12,19 @@ import (
 // p= public-key tag).
 func hasP(t string) bool { return strings.Contains(strings.ToLower(t), "p=") }
 
+// dedupe returns the input with duplicates removed, preserving first-seen order.
+func dedupe(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // probeSelectors looks up every selector concurrently and returns the DKIM TXT
 // record for each that answered, keyed by selector name.
 func (s *Scanner) probeSelectors(selectors []string) map[string]string {
@@ -65,10 +78,18 @@ func (s *Scanner) checkDKIM() Result {
 		return r
 	}
 
-	selectors := commonSelectors
+	// Build the selector list smartly: any user override first, then the
+	// selectors of the provider detected from SPF (so a Google/Microsoft/SES
+	// domain is checked with the right names), then the common fallback list.
+	prov := detectProvider(s.spf)
+	var selectors []string
 	if s.opts.Selector != "" {
-		selectors = append([]string{s.opts.Selector}, selectors...)
+		selectors = append(selectors, s.opts.Selector)
 	}
+	if prov != nil {
+		selectors = append(selectors, prov.selectors...)
+	}
+	selectors = dedupe(append(selectors, commonSelectors...))
 
 	// Probe selectors concurrently (each is an independent DNS lookup), then pick
 	// the earliest in the list that answered so the result is deterministic.
@@ -116,10 +137,15 @@ func (s *Scanner) checkDKIM() Result {
 	r.Status = Warn
 	r.penalty = 8
 	r.Summary = "no DKIM selector found among common names"
-	r.Findings = []string{"selectors cannot be listed from DNS; the domain may sign with a custom one"}
-	r.Fixes = []string{
-		"If you use a custom selector, re-run with --selector <name> to confirm.",
-		"If you do not sign with DKIM, enable it at your mail provider and publish its selector record.",
+	if prov != nil {
+		r.Findings = []string{fmt.Sprintf("this domain sends via %s but no DKIM key was found for its usual selectors", prov.name)}
+		r.Fixes = []string{prov.dkimHint, "If it is already set up with a custom selector, re-run with --selector <name>."}
+	} else {
+		r.Findings = []string{"selectors cannot be listed from DNS; the domain may sign with a custom one"}
+		r.Fixes = []string{
+			"If you use a custom selector, re-run with --selector <name> to confirm.",
+			"If you do not sign with DKIM, enable it at your mail provider and publish its selector record.",
+		}
 	}
 	return r
 }

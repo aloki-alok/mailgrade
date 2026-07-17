@@ -19,10 +19,18 @@ func (s *Scanner) checkSPF() Result {
 		r.Status = Fail
 		r.penalty = 20
 		r.Summary = "no SPF record"
-		r.Fixes = []string{`Publish a TXT record like "v=spf1 include:<your-provider> -all".`}
+		include := "<your-provider>"
+		if p := providerFromMX(s.mx); p != nil {
+			include = p.spfToken
+		}
+		r.Fixes = []string{
+			"List the servers allowed to send as your domain.",
+			fmt.Sprintf(`publish: %s TXT "v=spf1 include:%s -all"`, s.domain, include),
+		}
 		return r
 	}
 
+	s.spf = txt
 	spf, _ := records.ParseSPF(txt)
 	r.Summary = fmt.Sprintf("v=spf1 with %s", allDesc(spf.AllQualifier))
 
