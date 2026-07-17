@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mailgrade — grade your email deliverability from the terminal</title>
+<meta name="description" content="mg scans a domain's MX, SPF, DKIM, DMARC, MTA-STS and more, grades it 0-100, and prints the exact DNS records to publish for each gap.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231f2a44'/%3E%3Ctext x='16' y='21' font-family='monospace' font-size='13' font-weight='bold' fill='%23f4f4ef' text-anchor='middle'%3Emg%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f4f4ef;
+  --ink:#1f2a44;
+  --muted:#5d6780;
+  --red:#d43d2a;
+  --blue:#2b4ea2;
+  --line:#d9d9d0;
+  --term-bg:#161c2e;
+  --term-fg:#e8e9f0;
+  --term-dim:#8a91a8;
+  --term-pass:#7ed491;
+  --term-warn:#f0c05a;
+  --term-grade:#f0c05a;
+  --card:#fbfbf8;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#12172a;
+    --ink:#e4e6ee;
+    --muted:#9aa1b8;
+    --red:#e05a48;
+    --blue:#7d97d8;
+    --line:#28304a;
+    --term-bg:#0c1020;
+    --card:#181e33;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:16px;
+  line-height:1.6;
+}
+.airmail{
+  height:14px;
+  background:repeating-linear-gradient(
+    -45deg,
+    var(--red) 0 16px,
+    var(--paper) 16px 30px,
+    var(--blue) 30px 46px,
+    var(--paper) 46px 60px
+  );
+}
+main{max-width:46rem;margin:0 auto;padding:0 1.25rem}
+a{color:var(--blue);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--blue)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--red);outline-offset:3px;border-radius:2px}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+/* hero */
+.hero{padding:4.5rem 0 3rem}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--red);
+  margin-bottom:1rem;
+}
+h1{
+  font-family:"IBM Plex Mono",monospace;
+  font-weight:700;
+  font-size:clamp(2.2rem,6vw,3.1rem);
+  letter-spacing:-.01em;
+  line-height:1.1;
+}
+.tagline{margin-top:1rem;font-size:1.12rem;max-width:34rem}
+.tagline strong{font-weight:500;color:var(--ink)}
+.hero-links{margin-top:1.5rem;display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap}
+.gh{font-family:"IBM Plex Mono",monospace;font-size:.9rem}
+
+/* command rows */
+.cmd{
+  display:flex;align-items:center;gap:.75rem;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:.7rem .9rem;
+  margin-top:.6rem;
+}
+.cmd .scroll{overflow-x:auto;flex:1;min-width:0}
+.cmd code{font-size:.85rem;white-space:nowrap}
+.cmd .p{color:var(--red);user-select:none}
+.cmd button{
+  margin-left:auto;flex-shrink:0;
+  font-family:"IBM Plex Mono",monospace;font-size:.7rem;
+  color:var(--muted);background:none;
+  border:1px solid var(--line);border-radius:4px;
+  padding:.25rem .55rem;cursor:pointer;
+}
+.cmd button:hover{color:var(--ink);border-color:var(--muted)}
+
+/* terminal demo + stamp */
+.demo{position:relative;margin:2.5rem 0 4rem}
+.term{
+  background:var(--term-bg);
+  border-radius:10px;
+  padding:1.4rem 1.5rem;
+  overflow-x:auto;
+  box-shadow:0 14px 40px -18px rgba(20,26,46,.5);
+}
+.term pre{
+  font-size:.8rem;
+  line-height:1.65;
+  color:var(--term-fg);
+}
+.term .d{color:var(--term-dim)}
+.term .ok{color:var(--term-pass)}
+.term .w{color:var(--term-warn)}
+.term .g{color:var(--term-grade);font-weight:700}
+.term .dom{font-weight:700}
+.demo-cap{margin-top:.8rem;font-size:.82rem;color:var(--muted)}
+.stamp{
+  position:absolute;top:-2.6rem;right:-1rem;
+  width:7.2rem;height:7.2rem;
+  border:2.5px solid var(--red);
+  border-radius:50%;
+  display:grid;place-items:center;
+  transform:rotate(-9deg);
+  color:var(--red);
+  opacity:.92;
+  background:var(--paper);
+  pointer-events:none;
+}
+.stamp::before{
+  content:"";
+  position:absolute;inset:7px;
+  border:1.5px dashed var(--red);
+  border-radius:50%;
+}
+.stamp .letter{
+  font-family:"IBM Plex Mono",monospace;
+  font-weight:700;font-size:2.6rem;line-height:1;
+}
+.stamp svg{position:absolute;inset:0;width:100%;height:100%}
+.stamp svg text{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:9.5px;letter-spacing:2.5px;
+  fill:var(--red);
+}
+@media (prefers-reduced-motion: no-preference){
+  .stamp{animation:stamp .35s cubic-bezier(.2,1.4,.4,1) both;animation-delay:.25s}
+  @keyframes stamp{
+    from{transform:rotate(-9deg) scale(1.6);opacity:0}
+    to{transform:rotate(-9deg) scale(1);opacity:.92}
+  }
+}
+@media (max-width:560px){.stamp{width:5.6rem;height:5.6rem;top:-1.8rem;right:-.4rem}.stamp .letter{font-size:1.9rem}}
+
+/* sections */
+section{margin:4rem 0}
+h2{
+  font-family:"IBM Plex Mono",monospace;
+  font-weight:700;font-size:1.05rem;
+  margin-bottom:1.2rem;
+}
+h2::before{content:"· ";color:var(--red)}
+.checks{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(19rem,1fr));
+  gap:.4rem 2rem;list-style:none;
+}
+.checks li{
+  display:flex;gap:.7rem;align-items:baseline;
+  padding:.35rem 0;
+  border-bottom:1px solid var(--line);
+  font-size:.92rem;
+}
+.checks .n{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.8rem;font-weight:500;
+  flex-shrink:0;width:6.2rem;
+}
+.checks .about{color:var(--muted)}
+.fix-note{max-width:36rem}
+.fix-note p{margin-bottom:1rem}
+.publish{
+  background:var(--card);
+  border-left:3px solid var(--red);
+  border-radius:0 6px 6px 0;
+  padding:.8rem 1rem;
+  font-size:.8rem;
+  overflow-wrap:anywhere;
+}
+.install p{color:var(--muted);font-size:.9rem;margin:1.2rem 0 .2rem}
+.install p code{font-size:.85rem;color:var(--ink)}
+
+/* footer */
+footer{
+  margin-top:5rem;
+  border-top:1px solid var(--line);
+  padding:1.6rem 0 2.4rem;
+  display:flex;gap:1.8rem;flex-wrap:wrap;
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.78rem;color:var(--muted);
+}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--ink);border-bottom-color:var(--ink)}
+.spacer{flex:1}
+</style>
+</head>
+<body>
+<div class="airmail" aria-hidden="true"></div>
+<main>
+  <header class="hero">
+    <p class="eyebrow">Email deliverability, graded</p>
+    <h1>mailgrade</h1>
+    <p class="tagline">One command scans a domain's mail posture, scores it 0 to 100, and prints the exact DNS records to publish for every gap. If your mail lands in spam, <strong>mg</strong> tells you why and how to fix it.</p>
+    <div class="hero-links">
+      <a class="gh" href="https://github.com/aloki-alok/mailgrade">github.com/aloki-alok/mailgrade &rarr;</a>
+    </div>
+    <div class="cmd">
+      <span class="scroll"><code><span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.sh | sh</code></span>
+      <button data-copy="curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.sh | sh">copy</button>
+    </div>
+  </header>
+
+  <div class="demo">
+    <div class="stamp" aria-hidden="true">
+      <svg viewBox="0 0 115 115"><defs><path id="arc" d="M 57.5,57.5 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0"/></defs><text><textPath href="#arc">MAILGRADE &#183; POSTMARKED BY DNS &#183;</textPath></text></svg>
+      <span class="letter">B</span>
+    </div>
+    <div class="term" role="img" aria-label="Terminal output of mg github.com: grade B, 87 out of 100, with per-check results and paste-ready fixes">
+<pre>
+<span class="d">$</span> mg github.com
+
+  <span class="dom">github.com</span>    <span class="g">B</span>    <span class="g">87/100</span>
+  Solid. 3 quick wins to harden (start with MTA-STS).
+
+  <span class="ok">&#10003;</span>  MX           1 MX host(s): github-com.mail.protection.outlook.com
+  <span class="ok">&#10003;</span>  SPF          v=spf1 with ~all (soft fail)
+  <span class="ok">&#10003;</span>  DKIM         selector "selector1" found
+  <span class="ok">&#10003;</span>  DMARC        p=quarantine
+  <span class="ok">&#10003;</span>  STARTTLS     github-com.mail.protection.outlook.com offers STARTTLS
+  <span class="w">&#9888;</span>  MTA-STS      no MTA-STS policy
+  <span class="w">&#9888;</span>  TLS-RPT      no TLS-RPT record
+  <span class="d">&#9472;</span>  DANE         no TLSA records (DANE is optional)
+  <span class="ok">&#10003;</span>  Blocklists   not listed
+
+  Fixes
+    <span class="w">&#9888;</span> MTA-STS: publish: _mta-sts.github.com TXT "v=STSv1; id=&#8230;"
+    <span class="w">&#9888;</span> TLS-RPT: publish: _smtp._tls.github.com TXT "v=TLSRPTv1; rua=&#8230;"
+</pre>
+    </div>
+    <p class="demo-cap">A real scan, trimmed for width. The full report covers eleven checks and takes about three seconds.</p>
+  </div>
+
+  <section>
+    <h2>What it checks</h2>
+    <ul class="checks">
+      <li><span class="n">MX</span><span class="about">mail routing, null-MX aware</span></li>
+      <li><span class="n">SPF</span><span class="about">qualifier and the 10-lookup limit</span></li>
+      <li><span class="n">DKIM</span><span class="about">probes ~50 selectors, provider-aware</span></li>
+      <li><span class="n">DMARC</span><span class="about">policy, subdomains, reporting</span></li>
+      <li><span class="n">PTR / rDNS</span><span class="about">forward-confirmed reverse DNS</span></li>
+      <li><span class="n">STARTTLS</span><span class="about">certificate expiry and hostname</span></li>
+      <li><span class="n">MTA-STS</span><span class="about">record and fetched policy mode</span></li>
+      <li><span class="n">TLS-RPT</span><span class="about">delivery failure reporting</span></li>
+      <li><span class="n">DANE</span><span class="about">TLSA records, optional</span></li>
+      <li><span class="n">BIMI</span><span class="about">brand indicator, optional</span></li>
+      <li><span class="n">Blocklists</span><span class="about">Spamhaus, SpamCop and friends</span></li>
+    </ul>
+  </section>
+
+  <section class="fix-note">
+    <h2>Fixes you can paste</h2>
+    <p>Most checkers tell you something is wrong. mg writes the record for you, with your domain already filled in:</p>
+    <div class="publish mono">publish: _dmarc.yourdomain.com TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com"</div>
+  </section>
+
+  <section class="install">
+    <h2>Install</h2>
+    <p>One line, checksum verified:</p>
+    <div class="cmd">
+      <span class="scroll"><code><span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.sh | sh</code></span>
+      <button data-copy="curl -fsSL https://raw.githubusercontent.com/aloki-alok/mailgrade/main/install.sh | sh">copy</button>
+    </div>
+    <p>With Go:</p>
+    <div class="cmd">
+      <span class="scroll"><code><span class="p">$</span> go install github.com/aloki-alok/mailgrade/cmd/mg@latest</code></span>
+      <button data-copy="go install github.com/aloki-alok/mailgrade/cmd/mg@latest">copy</button>
+    </div>
+    <p>Or grab a prebuilt binary for Linux, macOS or Windows from the <a href="https://github.com/aloki-alok/mailgrade/releases/latest">latest release</a>. Single static binary, no dependencies. Works in CI too: <code>mg --fail-on warn yourdomain.com</code>.</p>
+  </section>
+</main>
+<footer>
+  <main style="display:flex;gap:1.8rem;flex-wrap:wrap;width:100%">
+    <span>mailgrade</span>
+    <a href="https://github.com/aloki-alok/mailgrade">source</a>
+    <a href="https://github.com/aloki-alok/mailgrade/blob/main/LICENSE">MIT</a>
+    <span class="spacer"></span>
+    <span>250 ok</span>
+  </main>
+</footer>
+<script>
+document.querySelectorAll("[data-copy]").forEach(function(b){
+  b.addEventListener("click",function(){
+    navigator.clipboard.writeText(b.dataset.copy).then(function(){
+      b.textContent="copied";
+      setTimeout(function(){b.textContent="copy"},1500);
+    });
+  });
+});
+</script>
+</body>
+</html>
