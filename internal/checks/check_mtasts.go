@@ -14,6 +14,11 @@ import (
 // policy file served over HTTPS, and reports the policy mode.
 func (s *Scanner) checkMTASTS() Result {
 	r := Result{Name: "MTA-STS"}
+	if s.nullMX {
+		r.Status = NA
+		r.Summary = "not applicable: domain receives no mail"
+		return r
+	}
 
 	_, hasTXT := s.firstTXT("_mta-sts."+s.domain, func(t string) bool {
 		return strings.HasPrefix(strings.ToLower(strings.TrimSpace(t)), "v=stsv1")

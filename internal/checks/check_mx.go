@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/aloki-alok/mailgrade/internal/dns"
 )
 
 // checkMX resolves the domain's MX records, resolves each host's IPs, and (unless
@@ -17,6 +19,16 @@ func (s *Scanner) checkMX() Result {
 		r.penalty = 25
 		r.Summary = "no MX records: this domain cannot receive mail"
 		r.Fixes = []string{"Publish at least one MX record pointing at a mail host that accepts SMTP on port 25."}
+		return r
+	}
+
+	// A null MX (RFC 7505: a single "0 ." record) is a deliberate statement that
+	// the domain handles no mail. That is a correct, intentional posture, not a
+	// failure; the inbound-transport checks that need an MX host become NA.
+	if isNullMX(mx) {
+		s.nullMX = true
+		r.Status = NA
+		r.Summary = "null MX (RFC 7505): this domain does not receive mail"
 		return r
 	}
 	s.mx = mx
@@ -60,6 +72,12 @@ func (s *Scanner) checkMX() Result {
 		r.Status = Pass
 	}
 	return r
+}
+
+// isNullMX reports whether the MX set is a single RFC 7505 null MX ("0 ."),
+// which signals the domain neither sends nor receives mail through MX.
+func isNullMX(mx []dns.MXHost) bool {
+	return len(mx) == 1 && (mx[0].Host == "" || mx[0].Host == ".")
 }
 
 // dialable reports whether a TCP connection to addr succeeds within timeout.

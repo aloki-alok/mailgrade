@@ -12,6 +12,11 @@ import (
 // which is how you learn when TLS delivery to your domain fails.
 func (s *Scanner) checkTLSRPT() Result {
 	r := Result{Name: "TLS-RPT"}
+	if s.nullMX {
+		r.Status = NA
+		r.Summary = "not applicable: domain receives no mail"
+		return r
+	}
 	_, ok := s.firstTXT("_smtp._tls."+s.domain, func(t string) bool {
 		return strings.HasPrefix(strings.ToLower(strings.TrimSpace(t)), "v=tlsrptv1")
 	})

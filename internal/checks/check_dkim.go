@@ -7,6 +7,10 @@ import (
 	"github.com/aloki-alok/mailgrade/internal/records"
 )
 
+// hasP reports whether a TXT record looks like a DKIM key record (it carries a
+// p= public-key tag).
+func hasP(t string) bool { return strings.Contains(strings.ToLower(t), "p=") }
+
 // commonSelectors are DKIM selector names in wide use by mail providers. DKIM
 // gives no way to enumerate selectors from DNS, so discovery probes these (plus
 // any user-supplied --selector).
@@ -22,6 +26,16 @@ var commonSelectors = []string{
 func (s *Scanner) checkDKIM() Result {
 	r := Result{Name: "DKIM"}
 
+	// A wildcard under _domainkey answers every selector, so per-selector
+	// discovery would report a meaningless "found". Detect it by probing a name
+	// that cannot be a real selector.
+	if _, ok := s.firstTXT("mailgrade-wildcard-probe._domainkey."+s.domain, hasP); ok {
+		r.Status = NA
+		r.Summary = "wildcard _domainkey record: every selector answers"
+		r.Findings = []string{"a specific selector cannot be verified; check DKIM at your provider"}
+		return r
+	}
+
 	selectors := commonSelectors
 	if s.opts.Selector != "" {
 		selectors = append([]string{s.opts.Selector}, selectors...)
@@ -29,7 +43,7 @@ func (s *Scanner) checkDKIM() Result {
 
 	for _, sel := range selectors {
 		name := sel + "._domainkey." + s.domain
-		txt, ok := s.firstTXT(name, func(t string) bool { return strings.Contains(strings.ToLower(t), "p=") })
+		txt, ok := s.firstTXT(name, hasP)
 		if !ok {
 			continue
 		}

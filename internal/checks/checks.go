@@ -80,8 +80,9 @@ type Scanner struct {
 	res    *dns.Resolver
 	opts   Options
 
-	mx    []dns.MXHost
-	mxIPs map[string][]net.IP
+	mx     []dns.MXHost
+	mxIPs  map[string][]net.IP
+	nullMX bool
 }
 
 // Run scans a domain and returns a scored report. Checks run in a fixed order;
