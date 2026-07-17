@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/aloki-alok/mailgrade/internal/dns"
 )
@@ -108,23 +109,51 @@ func (s *Scanner) checkDNSBL() Result {
 		return r
 	}
 
-	var listings []string
-	definitive := 0 // zone answers that were authoritative (clean or listed)
-	probes := 0
+	type probe struct {
+		ip   net.IP
+		zone string
+	}
+	var jobs []probe
 	for _, ip := range ips {
-		rev, ok := dns.ReverseName(ip)
-		if !ok {
+		if _, ok := dns.ReverseName(ip); !ok {
 			continue // IPv6 blocklist queries are out of scope for v0.1
 		}
 		for _, zone := range dnsbls {
-			probes++
-			switch classifyDNSBL(s, rev+"."+zone) {
+			jobs = append(jobs, probe{ip, zone})
+		}
+	}
+
+	type outcome struct {
+		listed  bool
+		clean   bool
+		listing string
+	}
+	outcomes := make([]outcome, len(jobs))
+	var wg sync.WaitGroup
+	for i, j := range jobs {
+		wg.Add(1)
+		go func(i int, j probe) {
+			defer wg.Done()
+			rev, _ := dns.ReverseName(j.ip)
+			switch classifyDNSBL(s, rev+"."+j.zone) {
 			case dnsblListed:
-				definitive++
-				listings = append(listings, fmt.Sprintf("%s listed on %s", ip, zone))
+				outcomes[i] = outcome{listed: true, clean: true, listing: fmt.Sprintf("%s listed on %s", j.ip, j.zone)}
 			case dnsblClean:
-				definitive++
+				outcomes[i] = outcome{clean: true}
 			}
+		}(i, j)
+	}
+	wg.Wait()
+
+	var listings []string
+	definitive := 0
+	probes := len(jobs)
+	for _, o := range outcomes {
+		if o.clean {
+			definitive++
+		}
+		if o.listed {
+			listings = append(listings, o.listing)
 		}
 	}
 

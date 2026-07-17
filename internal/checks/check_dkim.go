@@ -3,6 +3,7 @@ package checks
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/aloki-alok/mailgrade/internal/records"
 )
@@ -10,6 +11,34 @@ import (
 // hasP reports whether a TXT record looks like a DKIM key record (it carries a
 // p= public-key tag).
 func hasP(t string) bool { return strings.Contains(strings.ToLower(t), "p=") }
+
+// probeSelectors looks up every selector concurrently and returns the DKIM TXT
+// record for each that answered, keyed by selector name.
+func (s *Scanner) probeSelectors(selectors []string) map[string]string {
+	type hit struct {
+		sel string
+		txt string
+	}
+	results := make(chan hit, len(selectors))
+	var wg sync.WaitGroup
+	for _, sel := range selectors {
+		wg.Add(1)
+		go func(sel string) {
+			defer wg.Done()
+			if txt, ok := s.firstTXT(sel+"._domainkey."+s.domain, hasP); ok {
+				results <- hit{sel, txt}
+			}
+		}(sel)
+	}
+	wg.Wait()
+	close(results)
+
+	found := map[string]string{}
+	for h := range results {
+		found[h.sel] = h.txt
+	}
+	return found
+}
 
 // commonSelectors are DKIM selector names in wide use by mail providers. DKIM
 // gives no way to enumerate selectors from DNS, so discovery probes these (plus
@@ -41,9 +70,12 @@ func (s *Scanner) checkDKIM() Result {
 		selectors = append([]string{s.opts.Selector}, selectors...)
 	}
 
+	// Probe selectors concurrently (each is an independent DNS lookup), then pick
+	// the earliest in the list that answered so the result is deterministic.
+	found := s.probeSelectors(selectors)
+
 	for _, sel := range selectors {
-		name := sel + "._domainkey." + s.domain
-		txt, ok := s.firstTXT(name, hasP)
+		txt, ok := found[sel]
 		if !ok {
 			continue
 		}
