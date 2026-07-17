@@ -5,9 +5,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: mailgrade
-    main: .
-    binary: mailgrade
+  - id: mg
+    main: ./cmd/mg
+    binary: mg
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -16,8 +16,8 @@ builds:
     goarch: [amd64, arm64]
 
 archives:
-  - id: mailgrade
-    name_template: "mailgrade_{{ .Os }}_{{ .Arch }}"
+  - id: mg
+    name_template: "mg_{{ .Os }}_{{ .Arch }}"
     formats: [tar.gz]
     format_overrides:
       - goos: windows
