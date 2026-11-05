@@ -33,7 +33,6 @@ mailgrade is a Go CLI (`mg`) that grades a domain's email deliverability from pu
 - A wrong parse misreports a domain. Add a test for every parsing change.
 - STARTTLS needs outbound port 25. When the MX is unreachable the check is skipped, never counted against the domain.
 - Color switches off when output is piped. Do not break that.
-- Tests must not need the network. Use `--no-network` behavior and fixtures.
 
 ## Before you open a PR
 
